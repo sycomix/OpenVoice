@@ -35,7 +35,7 @@ class OpenVoiceBaseClass(object):
     def load_ckpt(self, ckpt_path):
         checkpoint_dict = torch.load(ckpt_path, map_location=torch.device(self.device))
         a, b = self.model.load_state_dict(checkpoint_dict['model'], strict=False)
-        print("Loaded checkpoint '{}'".format(ckpt_path))
+        print(f"Loaded checkpoint '{ckpt_path}'")
         print('missing/unexpected keys:', a, b)
 
 
@@ -196,6 +196,5 @@ class ToneColorConverter(OpenVoiceBaseClass):
                 message_decoded_npy = (self.watermark_model.decode(signal) >= 0.5).int().detach().cpu().numpy().squeeze()
             bits.append(message_decoded_npy)
         bits = np.stack(bits).reshape(-1, 8)
-        message = utils.bits_to_string(bits)
-        return message
+        return utils.bits_to_string(bits)
     
