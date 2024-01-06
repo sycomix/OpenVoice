@@ -113,7 +113,7 @@ class StochasticDurationPredictor(nn.Module):
 		self.log_flow = modules.Log()
 		self.flows = nn.ModuleList()
 		self.flows.append(modules.ElementwiseAffine(2))
-		for i in range(n_flows):
+		for _ in range(n_flows):
 			self.flows.append(modules.ConvFlow(2, filter_channels, kernel_size, n_layers=3))
 			self.flows.append(modules.Flip())
 
@@ -122,7 +122,7 @@ class StochasticDurationPredictor(nn.Module):
 		self.post_convs = modules.DDSConv(filter_channels, kernel_size, n_layers=3, p_dropout=p_dropout)
 		self.post_flows = nn.ModuleList()
 		self.post_flows.append(modules.ElementwiseAffine(2))
-		for i in range(4):
+		for _ in range(4):
 			self.post_flows.append(modules.ConvFlow(2, filter_channels, kernel_size, n_layers=3))
 			self.post_flows.append(modules.Flip())
 
@@ -176,8 +176,7 @@ class StochasticDurationPredictor(nn.Module):
 			for flow in flows:
 				z = flow(z, x_mask, g=x, reverse=reverse)
 			z0, z1 = torch.split(z, [1, 1], 1)
-			logw = z0
-			return logw
+			return z0
 
 class PosteriorEncoder(nn.Module):
     def __init__(
@@ -233,41 +232,39 @@ class Generator(torch.nn.Module):
         upsample_kernel_sizes,
         gin_channels=0,
     ):
-        super(Generator, self).__init__()
-        self.num_kernels = len(resblock_kernel_sizes)
-        self.num_upsamples = len(upsample_rates)
-        self.conv_pre = Conv1d(
-            initial_channel, upsample_initial_channel, 7, 1, padding=3
-        )
-        resblock = modules.ResBlock1 if resblock == "1" else modules.ResBlock2
+    	super(Generator, self).__init__()
+    	self.num_kernels = len(resblock_kernel_sizes)
+    	self.num_upsamples = len(upsample_rates)
+    	self.conv_pre = Conv1d(
+    	    initial_channel, upsample_initial_channel, 7, 1, padding=3
+    	)
+    	resblock = modules.ResBlock1 if resblock == "1" else modules.ResBlock2
 
-        self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
-            self.ups.append(
-                weight_norm(
-                    ConvTranspose1d(
-                        upsample_initial_channel // (2**i),
-                        upsample_initial_channel // (2 ** (i + 1)),
-                        k,
-                        u,
-                        padding=(k - u) // 2,
-                    )
-                )
-            )
+    	self.ups = nn.ModuleList()
+    	for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
+    	    self.ups.append(
+    	        weight_norm(
+    	            ConvTranspose1d(
+    	                upsample_initial_channel // (2**i),
+    	                upsample_initial_channel // (2 ** (i + 1)),
+    	                k,
+    	                u,
+    	                padding=(k - u) // 2,
+    	            )
+    	        )
+    	    )
 
-        self.resblocks = nn.ModuleList()
-        for i in range(len(self.ups)):
-            ch = upsample_initial_channel // (2 ** (i + 1))
-            for j, (k, d) in enumerate(
-                zip(resblock_kernel_sizes, resblock_dilation_sizes)
-            ):
-                self.resblocks.append(resblock(ch, k, d))
+    	self.resblocks = nn.ModuleList()
+    	for i in range(len(self.ups)):
+    		ch = upsample_initial_channel // (2 ** (i + 1))
+    		for k, d in zip(resblock_kernel_sizes, resblock_dilation_sizes):
+    			self.resblocks.append(resblock(ch, k, d))
 
-        self.conv_post = Conv1d(ch, 1, 7, 1, padding=3, bias=False)
-        self.ups.apply(init_weights)
+    	self.conv_post = Conv1d(ch, 1, 7, 1, padding=3, bias=False)
+    	self.ups.apply(init_weights)
 
-        if gin_channels != 0:
-            self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
+    	if gin_channels != 0:
+    	    self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
 
     def forward(self, x, g=None):
         x = self.conv_pre(x)
@@ -305,36 +302,33 @@ class ReferenceEncoder(nn.Module):
     """
 
     def __init__(self, spec_channels, gin_channels=0, layernorm=True):
-        super().__init__()
-        self.spec_channels = spec_channels
-        ref_enc_filters = [32, 32, 64, 64, 128, 128]
-        K = len(ref_enc_filters)
-        filters = [1] + ref_enc_filters
-        convs = [
-            weight_norm(
-                nn.Conv2d(
-                    in_channels=filters[i],
-                    out_channels=filters[i + 1],
-                    kernel_size=(3, 3),
-                    stride=(2, 2),
-                    padding=(1, 1),
-                )
-            )
-            for i in range(K)
-        ]
-        self.convs = nn.ModuleList(convs)
+    	super().__init__()
+    	self.spec_channels = spec_channels
+    	ref_enc_filters = [32, 32, 64, 64, 128, 128]
+    	K = len(ref_enc_filters)
+    	filters = [1] + ref_enc_filters
+    	convs = [
+    	    weight_norm(
+    	        nn.Conv2d(
+    	            in_channels=filters[i],
+    	            out_channels=filters[i + 1],
+    	            kernel_size=(3, 3),
+    	            stride=(2, 2),
+    	            padding=(1, 1),
+    	        )
+    	    )
+    	    for i in range(K)
+    	]
+    	self.convs = nn.ModuleList(convs)
 
-        out_channels = self.calculate_channels(spec_channels, 3, 2, 1, K)
-        self.gru = nn.GRU(
-            input_size=ref_enc_filters[-1] * out_channels,
-            hidden_size=256 // 2,
-            batch_first=True,
-        )
-        self.proj = nn.Linear(128, gin_channels)
-        if layernorm:
-            self.layernorm = nn.LayerNorm(self.spec_channels)
-        else:
-            self.layernorm = None
+    	out_channels = self.calculate_channels(spec_channels, 3, 2, 1, K)
+    	self.gru = nn.GRU(
+    	    input_size=ref_enc_filters[-1] * out_channels,
+    	    hidden_size=256 // 2,
+    	    batch_first=True,
+    	)
+    	self.proj = nn.Linear(128, gin_channels)
+    	self.layernorm = nn.LayerNorm(self.spec_channels) if layernorm else None
 
     def forward(self, inputs, mask=None):
         N = inputs.size(0)
@@ -359,9 +353,9 @@ class ReferenceEncoder(nn.Module):
         return self.proj(out.squeeze(0))
 
     def calculate_channels(self, L, kernel_size, stride, pad, n_convs):
-        for i in range(n_convs):
-            L = (L - kernel_size + 2 * pad) // stride + 1
-        return L
+    	for _ in range(n_convs):
+    		L = (L - kernel_size + 2 * pad) // stride + 1
+    	return L
 
 
 class ResidualCouplingBlock(nn.Module):
@@ -373,19 +367,19 @@ class ResidualCouplingBlock(nn.Module):
             n_layers,
             n_flows=4,
             gin_channels=0):
-        super().__init__()
-        self.channels = channels
-        self.hidden_channels = hidden_channels
-        self.kernel_size = kernel_size
-        self.dilation_rate = dilation_rate
-        self.n_layers = n_layers
-        self.n_flows = n_flows
-        self.gin_channels = gin_channels
+    	super().__init__()
+    	self.channels = channels
+    	self.hidden_channels = hidden_channels
+    	self.kernel_size = kernel_size
+    	self.dilation_rate = dilation_rate
+    	self.n_layers = n_layers
+    	self.n_flows = n_flows
+    	self.gin_channels = gin_channels
 
-        self.flows = nn.ModuleList()
-        for i in range(n_flows):
-            self.flows.append(modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels, mean_only=True))
-            self.flows.append(modules.Flip())
+    	self.flows = nn.ModuleList()
+    	for _ in range(n_flows):
+    		self.flows.append(modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels, mean_only=True))
+    		self.flows.append(modules.Flip())
 
     def forward(self, x, x_mask, g=None, reverse=False):
         if not reverse:
@@ -463,29 +457,25 @@ class SynthesizerTrn(nn.Module):
             self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
     def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., sdp_ratio=0.2, max_len=None):
-        x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
-        if self.n_speakers > 0:
-            g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
-        else:
-            g = None
+    	x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
+    	g = self.emb_g(sid).unsqueeze(-1) if self.n_speakers > 0 else None
+    	logw = self.sdp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w) * sdp_ratio \
+    	        + self.dp(x, x_mask, g=g) * (1 - sdp_ratio)
 
-        logw = self.sdp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w) * sdp_ratio \
-            + self.dp(x, x_mask, g=g) * (1 - sdp_ratio)
+    	w = torch.exp(logw) * x_mask * length_scale
+    	w_ceil = torch.ceil(w)
+    	y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
+    	y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, None), 1).to(x_mask.dtype)
+    	attn_mask = torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)
+    	attn = commons.generate_path(w_ceil, attn_mask)
 
-        w = torch.exp(logw) * x_mask * length_scale
-        w_ceil = torch.ceil(w)
-        y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
-        y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, None), 1).to(x_mask.dtype)
-        attn_mask = torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)
-        attn = commons.generate_path(w_ceil, attn_mask)
+    	m_p = torch.matmul(attn.squeeze(1), m_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
+    	logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
 
-        m_p = torch.matmul(attn.squeeze(1), m_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
-        logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
-
-        z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
-        z = self.flow(z_p, y_mask, g=g, reverse=True)
-        o = self.dec((z * y_mask)[:,:,:max_len], g=g)
-        return o, attn, y_mask, (z, z_p, m_p, logs_p)
+    	z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
+    	z = self.flow(z_p, y_mask, g=g, reverse=True)
+    	o = self.dec((z * y_mask)[:,:,:max_len], g=g)
+    	return o, attn, y_mask, (z, z_p, m_p, logs_p)
 
     def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, tau=1.0):
         g_src = sid_src

@@ -24,7 +24,7 @@ def split_audio_whisper(audio_path, audio_name, target_dir='processed'):
     max_len = len(audio)
 
     target_folder = os.path.join(target_dir, audio_name)
-    
+
     segments, info = model.transcribe(audio_path, beam_size=5, word_timestamps=True)
     segments = list(segments)    
 
@@ -36,7 +36,7 @@ def split_audio_whisper(audio_path, audio_name, target_dir='processed'):
     # segments
     s_ind = 0
     start_time = None
-    
+
     for k, w in enumerate(segments):
         # process with the time
         if k == 0:
@@ -46,7 +46,7 @@ def split_audio_whisper(audio_path, audio_name, target_dir='processed'):
 
         # calculate confidence
         if len(w.words) > 0:
-            confidence = sum([s.probability for s in w.words]) / len(w.words)
+            confidence = sum(s.probability for s in w.words) / len(w.words)
         else:
             confidence = 0.
         # clean text
@@ -92,19 +92,18 @@ def split_audio_vad(audio_path, audio_name, target_dir, split_seconds=10.0):
 
     for start_time, end_time in segments:
         audio_active += audio[int( start_time * 1000) : int(end_time * 1000)]
-    
+
     audio_dur = audio_active.duration_seconds
     print(f'after vad: dur = {audio_dur}')
     target_folder = os.path.join(target_dir, audio_name)
     wavs_folder = os.path.join(target_folder, 'wavs')
     os.makedirs(wavs_folder, exist_ok=True)
     start_time = 0.
-    count = 0
     num_splits = int(np.round(audio_dur / split_seconds))
     assert num_splits > 0, 'input audio is too short'
     interval = audio_dur / num_splits
 
-    for i in range(num_splits):
+    for count, i in enumerate(range(num_splits)):
         end_time = min(start_time + interval, audio_dur)
         if i == num_splits - 1:
             end_time = audio_dur
@@ -112,7 +111,6 @@ def split_audio_vad(audio_path, audio_name, target_dir, split_seconds=10.0):
         audio_seg = audio_active[int(start_time * 1000): int(end_time * 1000)]
         audio_seg.export(output_file, format='wav')
         start_time = end_time
-        count += 1
     return wavs_folder
 
 def hash_numpy_array(audio_path):
@@ -141,10 +139,9 @@ def get_se(audio_path, vc_model, target_dir='processed', vad=True):
         wavs_folder = split_audio_vad(audio_path, target_dir=target_dir, audio_name=audio_name)
     else:
         wavs_folder = split_audio_whisper(audio_path, target_dir=target_dir, audio_name=audio_name)
-    
-    audio_segs = glob(f'{wavs_folder}/*.wav')
-    if len(audio_segs) == 0:
+
+    if audio_segs := glob(f'{wavs_folder}/*.wav'):
+        return vc_model.extract_se(audio_segs, se_save_path=se_path), audio_name
+    else:
         raise NotImplementedError('No audio segments found!')
-    
-    return vc_model.extract_se(audio_segs, se_save_path=se_path), audio_name
 

@@ -374,11 +374,10 @@ class Log(nn.Module):
 class Flip(nn.Module):
     def forward(self, x, *args, reverse=False, **kwargs):
         x = torch.flip(x, [1])
-        if not reverse:
-            logdet = torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
-            return x, logdet
-        else:
+        if reverse:
             return x
+        logdet = torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
+        return x, logdet
 
 
 class ElementwiseAffine(nn.Module):
@@ -510,10 +509,7 @@ class ConvFlow(nn.Module):
 
         x = torch.cat([x0, x1], 1) * x_mask
         logdet = torch.sum(logabsdet * x_mask, [1, 2])
-        if not reverse:
-            return x, logdet
-        else:
-            return x
+        return (x, logdet) if not reverse else x
 
 
 class TransformerCouplingLayer(nn.Module):
@@ -592,7 +588,4 @@ class TransformerCouplingLayer(nn.Module):
 
         x = torch.cat([x0, x1], 1) * x_mask
         logdet = torch.sum(logabsdet * x_mask, [1, 2])
-        if not reverse:
-            return x, logdet
-        else:
-            return x
+        return (x, logdet) if not reverse else x

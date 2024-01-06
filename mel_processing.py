@@ -24,13 +24,11 @@ def dynamic_range_decompression_torch(x, C=1):
 
 
 def spectral_normalize_torch(magnitudes):
-    output = dynamic_range_compression_torch(magnitudes)
-    return output
+    return dynamic_range_compression_torch(magnitudes)
 
 
 def spectral_de_normalize_torch(magnitudes):
-    output = dynamic_range_decompression_torch(magnitudes)
-    return output
+    return dynamic_range_decompression_torch(magnitudes)
 
 
 mel_basis = {}
@@ -44,8 +42,8 @@ def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False)
         print("max value is ", torch.max(y))
 
     global hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    wnsize_dtype_device = str(win_size) + "_" + dtype_device
+    dtype_device = f"{str(y.dtype)}_{str(y.device)}"
+    wnsize_dtype_device = f"{str(win_size)}_{dtype_device}"
     if wnsize_dtype_device not in hann_window:
         hann_window[wnsize_dtype_device] = torch.hann_window(win_size).to(
             dtype=y.dtype, device=y.device
@@ -82,13 +80,13 @@ def spectrogram_torch_conv(y, n_fft, sampling_rate, hop_size, win_size, center=F
     #     print('max value is ', torch.max(y))
 
     global hann_window
-    dtype_device = str(y.dtype) + '_' + str(y.device)
-    wnsize_dtype_device = str(win_size) + '_' + dtype_device
+    dtype_device = f'{str(y.dtype)}_{str(y.device)}'
+    wnsize_dtype_device = f'{str(win_size)}_{dtype_device}'
     if wnsize_dtype_device not in hann_window:
         hann_window[wnsize_dtype_device] = torch.hann_window(win_size).to(dtype=y.dtype, device=y.device)
 
     y = torch.nn.functional.pad(y.unsqueeze(1), (int((n_fft-hop_size)/2), int((n_fft-hop_size)/2)), mode='reflect')
-    
+
     # ******************** original ************************#
     # y = y.squeeze(1)
     # spec1 = torch.stft(y, n_fft, hop_length=hop_size, win_length=win_size, window=hann_window[wnsize_dtype_device],
@@ -115,14 +113,13 @@ def spectrogram_torch_conv(y, n_fft, sampling_rate, hop_size, win_size, center=F
                       center=center, pad_mode='reflect', normalized=False, onesided=True, return_complex=False)
     assert torch.allclose(spec1, spec2, atol=1e-4)
 
-    spec = torch.sqrt(spec2.pow(2).sum(-1) + 1e-6)
-    return spec
+    return torch.sqrt(spec2.pow(2).sum(-1) + 1e-6)
 
 
 def spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax):
     global mel_basis
-    dtype_device = str(spec.dtype) + "_" + str(spec.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
+    dtype_device = f"{str(spec.dtype)}_{str(spec.device)}"
+    fmax_dtype_device = f"{str(fmax)}_{dtype_device}"
     if fmax_dtype_device not in mel_basis:
         mel = librosa_mel_fn(sampling_rate, n_fft, num_mels, fmin, fmax)
         mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(
@@ -142,9 +139,9 @@ def mel_spectrogram_torch(
         print("max value is ", torch.max(y))
 
     global mel_basis, hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
-    wnsize_dtype_device = str(win_size) + "_" + dtype_device
+    dtype_device = f"{str(y.dtype)}_{str(y.device)}"
+    fmax_dtype_device = f"{str(fmax)}_{dtype_device}"
+    wnsize_dtype_device = f"{str(win_size)}_{dtype_device}"
     if fmax_dtype_device not in mel_basis:
         mel = librosa_mel_fn(sampling_rate, n_fft, num_mels, fmin, fmax)
         mel_basis[fmax_dtype_device] = torch.from_numpy(mel).to(

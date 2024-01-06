@@ -8,8 +8,7 @@ def get_hparams_from_file(config_path):
         data = f.read()
     config = json.loads(data)
 
-    hparams = HParams(**config)
-    return hparams
+    return HParams(**config)
 
 class HParams:
     def __init__(self, **kwargs):
@@ -65,22 +64,19 @@ def string_to_bits(string, pad_len=8):
 def bits_to_string(bits_array):
     # Convert each row of the array to a binary string
     binary_values = [''.join(str(bit) for bit in row) for row in bits_array]
-    
+
     # Convert binary strings to ASCII values
     ascii_values = [int(binary, 2) for binary in binary_values]
-    
-    # Convert ASCII values to characters
-    output_string = ''.join(chr(value) for value in ascii_values)
-    
-    return output_string
+
+    return ''.join(chr(value) for value in ascii_values)
 
 
 def split_sentence(text, min_len=10, language_str='[EN]'):
-    if language_str in ['EN']:
-        sentences = split_sentences_latin(text, min_len=min_len)
-    else:
-        sentences = split_sentences_zh(text, min_len=min_len)
-    return sentences
+    return (
+        split_sentences_latin(text, min_len=min_len)
+        if language_str in ['EN']
+        else split_sentences_zh(text, min_len=min_len)
+    )
 
 def split_sentences_latin(text, min_len=10):
     """Split Long sentences into list of short ones
@@ -130,13 +126,13 @@ def merge_short_sentences_latin(sens):
     for s in sens:
         # If the previous sentence is too short, merge them with
         # the current sentence.
-        if len(sens_out) > 0 and len(sens_out[-1].split(" ")) <= 2:
-            sens_out[-1] = sens_out[-1] + " " + s
+        if sens_out and len(sens_out[-1].split(" ")) <= 2:
+            sens_out[-1] = f"{sens_out[-1]} {s}"
         else:
             sens_out.append(s)
     try:
         if len(sens_out[-1].split(" ")) <= 2:
-            sens_out[-2] = sens_out[-2] + " " + sens_out[-1]
+            sens_out[-2] = f"{sens_out[-2]} {sens_out[-1]}"
             sens_out.pop(-1)
     except:
         pass
@@ -181,13 +177,13 @@ def merge_short_sentences_zh(sens):
     for s in sens:
         # If the previous sentense is too short, merge them with
         # the current sentence.
-        if len(sens_out) > 0 and len(sens_out[-1]) <= 2:
-            sens_out[-1] = sens_out[-1] + " " + s
+        if sens_out and len(sens_out[-1]) <= 2:
+            sens_out[-1] = f"{sens_out[-1]} {s}"
         else:
             sens_out.append(s)
     try:
         if len(sens_out[-1]) <= 2:
-            sens_out[-2] = sens_out[-2] + " " + sens_out[-1]
+            sens_out[-2] = f"{sens_out[-2]} {sens_out[-1]}"
             sens_out.pop(-1)
     except:
         pass

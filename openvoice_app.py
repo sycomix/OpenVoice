@@ -48,7 +48,7 @@ def predict(prompt, style, audio_file_pth, agree):
         )
 
     # first detect the input language
-    language_predicted = langid.classify(prompt)[0].strip()  
+    language_predicted = langid.classify(prompt)[0].strip()
     print(f"Detected language:{language_predicted}")
 
     if language_predicted not in supported_languages:
@@ -62,7 +62,7 @@ def predict(prompt, style, audio_file_pth, agree):
             None,
             None,
         )
-    
+
     if language_predicted == "zh":
         tts_model = zh_base_speaker_tts
         source_se = zh_source_se
@@ -78,10 +78,7 @@ def predict(prompt, style, audio_file_pth, agree):
 
     else:
         tts_model = en_base_speaker_tts
-        if style == 'default':
-            source_se = en_source_default_se
-        else:
-            source_se = en_source_style_se
+        source_se = en_source_default_se if style == 'default' else en_source_style_se
         language = 'English'
         if style not in ['default', 'whispering', 'shouting', 'excited', 'cheerful', 'terrified', 'angry', 'sad', 'friendly']:
             text_hint += f"[ERROR] The style {style} is not supported for English, which should be in ['default', 'whispering', 'shouting', 'excited', 'cheerful', 'terrified', 'angry', 'sad', 'friendly']\n"
@@ -112,7 +109,7 @@ def predict(prompt, style, audio_file_pth, agree):
             None,
             None,
         )
-    
+
     # note diffusion_conditioning not used on hifigan (default mode), it will be empty but need to pass it to model.inference
     try:
         target_se, audio_name = se_extractor.get_se(speaker_wav, tone_color_converter, target_dir='processed', vad=True)
